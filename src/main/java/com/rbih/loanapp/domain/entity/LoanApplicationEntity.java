@@ -44,12 +44,30 @@ public class LoanApplicationEntity {
     private RiskBand riskBand;
 
     @Embedded
+    @AttributeOverrides({
+            @AttributeOverride(name = "name",          column = @Column(name = "applicant_name")),
+            @AttributeOverride(name = "age",           column = @Column(name = "applicant_age")),
+            @AttributeOverride(name = "monthlyIncome", column = @Column(name = "applicant_monthly_income", precision = 15, scale = 2)),
+            @AttributeOverride(name = "employmentType",column = @Column(name = "applicant_employment_type")),
+            @AttributeOverride(name = "creditScore",   column = @Column(name = "applicant_credit_score"))
+    })
     private ApplicantDetails applicant;
 
     @Embedded
+    @AttributeOverrides({
+            @AttributeOverride(name = "amount",       column = @Column(name = "loan_amount", precision = 15, scale = 2)),
+            @AttributeOverride(name = "tenureMonths", column = @Column(name = "loan_tenure_months")),
+            @AttributeOverride(name = "purpose",      column = @Column(name = "loan_purpose"))
+    })
     private LoanDetails loan;
 
     @Embedded
+    @AttributeOverrides({
+            @AttributeOverride(name = "interestRate",  column = @Column(name = "offer_interest_rate", precision = 6, scale = 2)),
+            @AttributeOverride(name = "tenureMonths", column = @Column(name = "offer_tenure_months")),
+            @AttributeOverride(name = "emi",           column = @Column(name = "offer_emi", precision = 15, scale = 2)),
+            @AttributeOverride(name = "totalPayable",  column = @Column(name = "offer_total_payable", precision = 15, scale = 2))
+    })
     private OfferDetails offer;
 
     @ElementCollection(fetch = FetchType.EAGER)

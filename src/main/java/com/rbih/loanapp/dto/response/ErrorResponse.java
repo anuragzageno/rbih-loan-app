@@ -1,7 +1,7 @@
 package com.rbih.loanapp.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import lombok.Builder;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 import java.time.Instant;
@@ -20,22 +20,24 @@ import java.util.List;
  *     { "field": "applicant.age", "message": "must be between 21 and 60" }
  *   ]
  * }
+ *
+ * Uses @AllArgsConstructor rather than @Builder to avoid a known Lombok
+ * conflict when a nested record shares a field name with the outer class.
  */
 @Getter
-@Builder
+@AllArgsConstructor
 public class ErrorResponse {
 
     private Instant timestamp;
     private int status;
     private String error;
-    private String message;
+    private String errorMessage;
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private List<FieldError> fieldErrors;
 
     /**
-     * Per-field validation error. Modelled as a record (Java 17) — immutable
-     * value object with no need for Lombok annotations.
+     * Per-field validation error — Java 17 record, inherently immutable.
      */
     public record FieldError(String field, String message) {}
 }

@@ -35,41 +35,33 @@ public class GlobalExceptionHandler {
                 .map(fe -> new ErrorResponse.FieldError(fe.getField(), fe.getDefaultMessage()))
                 .toList();
 
-        return ErrorResponse.builder()
-                .timestamp(Instant.now())
-                .status(HttpStatus.BAD_REQUEST.value())
-                .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
-                .message("Validation failed for one or more fields")
-                .fieldErrors(fieldErrors)
-                .build();
+        return new ErrorResponse(
+                Instant.now(),
+                HttpStatus.BAD_REQUEST.value(),
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                "Validation failed for one or more fields",
+                fieldErrors);
     }
 
-    /**
-     * Malformed JSON body or unrecognised enum value
-     * (e.g. employmentType: "FREELANCER" which doesn't map to EmploymentType).
-     */
     @ExceptionHandler(HttpMessageNotReadableException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorResponse handleUnreadableMessage(HttpMessageNotReadableException ex) {
-        return ErrorResponse.builder()
-                .timestamp(Instant.now())
-                .status(HttpStatus.BAD_REQUEST.value())
-                .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
-                .message("Request body is malformed or contains an invalid value")
-                .build();
+        return new ErrorResponse(
+                Instant.now(),
+                HttpStatus.BAD_REQUEST.value(),
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                "Request body is malformed or contains an invalid value",
+                null);
     }
 
-    /**
-     * Catch-all — prevents leaking stack traces or internal detail to clients.
-     */
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ErrorResponse handleUnexpectedException(Exception ex) {
-        return ErrorResponse.builder()
-                .timestamp(Instant.now())
-                .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
-                .error(HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase())
-                .message("An unexpected error occurred. Please try again later.")
-                .build();
+        return new ErrorResponse(
+                Instant.now(),
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
+                "An unexpected error occurred. Please try again later.",
+                null);
     }
 }
