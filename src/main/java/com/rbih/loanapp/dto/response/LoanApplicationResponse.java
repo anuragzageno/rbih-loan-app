@@ -12,21 +12,29 @@ import java.util.UUID;
 /**
  * Top-level response for POST /applications.
  *
- * A single DTO covers both outcomes:
- *  - APPROVED: riskBand + offer are populated; rejectionReasons is null/absent.
- *  - REJECTED: rejectionReasons is populated; offer is null/absent.
+ * A single DTO covers both APPROVED and REJECTED outcomes:
+ *  - APPROVED : riskBand is set, offer is populated, rejectionReasons absent.
+ *  - REJECTED : riskBand may be null (explicit null per spec), offer absent,
+ *               rejectionReasons populated.
  *
- * @JsonInclude(NON_NULL) ensures null fields are omitted from the JSON body,
- * matching the spec's separate approved/rejected shapes without two separate classes.
+ * Field-level @JsonInclude(NON_NULL) is used on offer and rejectionReasons so
+ * they are omitted when not applicable, while riskBand is always serialized
+ * (including as JSON null) to match the spec's rejected shape exactly.
  */
 @Getter
 @Builder
-@JsonInclude(JsonInclude.Include.NON_NULL)
 public class LoanApplicationResponse {
 
     private UUID applicationId;
     private ApplicationStatus status;
+
+    // Always present in the response body — null on REJECTED paths where
+    // credit score disqualified before risk classification.
     private RiskBand riskBand;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private OfferResponse offer;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     private List<String> rejectionReasons;
 }
