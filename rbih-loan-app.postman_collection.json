@@ -1,0 +1,565 @@
+{
+  "info": {
+    "name": "RBIH Loan Application Service",
+    "_postman_id": "rbih-loan-app-v1",
+    "description": "Postman collection for the RBIH digital lending platform. Covers all happy-path and error scenarios for POST /applications.\n\nStart the service with:\n  JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-17.jdk/Contents/Home mvn spring-boot:run\n\nBase URL: http://localhost:8080",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Happy Path",
+      "description": "Requests that result in an APPROVED decision.",
+      "item": [
+        {
+          "name": "Approve — Salaried, LOW risk, small loan",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/applications", "host": ["{{baseUrl}}"], "path": ["applications"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"applicant\": {\n    \"name\": \"Priya Sharma\",\n    \"age\": 30,\n    \"monthlyIncome\": 80000,\n    \"employmentType\": \"SALARIED\",\n    \"creditScore\": 780\n  },\n  \"loan\": {\n    \"amount\": 200000,\n    \"tenureMonths\": 24,\n    \"purpose\": \"PERSONAL\"\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Decision is APPROVED', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.status).to.eql('APPROVED');",
+                  "});",
+                  "pm.test('Offer is present', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.offer).to.be.an('object');",
+                  "    pm.expect(body.offer.emi).to.be.a('number');",
+                  "    pm.expect(body.offer.interestRate).to.be.a('number');",
+                  "    pm.expect(body.offer.tenureMonths).to.eql(24);",
+                  "    pm.expect(body.offer.totalPayable).to.be.a('number');",
+                  "});",
+                  "pm.test('Risk band is LOW', () => {",
+                  "    pm.expect(pm.response.json().riskBand).to.eql('LOW');",
+                  "});",
+                  "pm.test('No rejection reasons', () => {",
+                  "    pm.expect(pm.response.json().rejectionReasons).to.be.undefined;",
+                  "});",
+                  "pm.test('Application ID is a UUID', () => {",
+                  "    const id = pm.response.json().applicationId;",
+                  "    pm.expect(id).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Approve — Self-Employed, MEDIUM risk, home loan",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/applications", "host": ["{{baseUrl}}"], "path": ["applications"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"applicant\": {\n    \"name\": \"Rajan Mehta\",\n    \"age\": 35,\n    \"monthlyIncome\": 150000,\n    \"employmentType\": \"SELF_EMPLOYED\",\n    \"creditScore\": 700\n  },\n  \"loan\": {\n    \"amount\": 1500000,\n    \"tenureMonths\": 120,\n    \"purpose\": \"HOME\"\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Decision is APPROVED', () => pm.expect(pm.response.json().status).to.eql('APPROVED'));",
+                  "pm.test('Risk band is MEDIUM', () => pm.expect(pm.response.json().riskBand).to.eql('MEDIUM'));",
+                  "pm.test('Interest rate includes MEDIUM + SELF_EMPLOYED premium', () => {",
+                  "    // Base 12 + risk 1.5 + employment 1 = 14.5%",
+                  "    pm.expect(pm.response.json().offer.interestRate).to.be.at.least(14);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Approve — HIGH risk, large loan (>10L adds 0.5% premium)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/applications", "host": ["{{baseUrl}}"], "path": ["applications"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"applicant\": {\n    \"name\": \"Anita Kulkarni\",\n    \"age\": 28,\n    \"monthlyIncome\": 200000,\n    \"employmentType\": \"SALARIED\",\n    \"creditScore\": 620\n  },\n  \"loan\": {\n    \"amount\": 2000000,\n    \"tenureMonths\": 60,\n    \"purpose\": \"AUTO\"\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Decision is APPROVED', () => pm.expect(pm.response.json().status).to.eql('APPROVED'));",
+                  "pm.test('Risk band is HIGH', () => pm.expect(pm.response.json().riskBand).to.eql('HIGH'));",
+                  "pm.test('Interest rate includes HIGH + large loan premium', () => {",
+                  "    // Base 12 + risk 3 + loan-size 0.5 = 15.5%",
+                  "    pm.expect(pm.response.json().offer.interestRate).to.be.at.least(15);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Approve — Boundary credit score 600 (minimum)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/applications", "host": ["{{baseUrl}}"], "path": ["applications"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"applicant\": {\n    \"name\": \"Suresh Nair\",\n    \"age\": 25,\n    \"monthlyIncome\": 100000,\n    \"employmentType\": \"SALARIED\",\n    \"creditScore\": 600\n  },\n  \"loan\": {\n    \"amount\": 100000,\n    \"tenureMonths\": 12,\n    \"purpose\": \"PERSONAL\"\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Decision is APPROVED at minimum credit score', () => {",
+                  "    pm.expect(pm.response.json().status).to.eql('APPROVED');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Rejection — Business Rules",
+      "description": "Requests that are structurally valid but fail one or more eligibility rules.",
+      "item": [
+        {
+          "name": "Reject — Credit score below 600",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/applications", "host": ["{{baseUrl}}"], "path": ["applications"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"applicant\": {\n    \"name\": \"Deepak Verma\",\n    \"age\": 32,\n    \"monthlyIncome\": 60000,\n    \"employmentType\": \"SALARIED\",\n    \"creditScore\": 550\n  },\n  \"loan\": {\n    \"amount\": 300000,\n    \"tenureMonths\": 36,\n    \"purpose\": \"PERSONAL\"\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Decision is REJECTED', () => pm.expect(pm.response.json().status).to.eql('REJECTED'));",
+                  "pm.test('Rejection reason is CREDIT_SCORE_BELOW_MINIMUM', () => {",
+                  "    const reasons = pm.response.json().rejectionReasons;",
+                  "    pm.expect(reasons).to.include('CREDIT_SCORE_BELOW_MINIMUM');",
+                  "});",
+                  "pm.test('No offer on rejection', () => pm.expect(pm.response.json().offer).to.be.undefined);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject — Age + tenure exceeds 65 years",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/applications", "host": ["{{baseUrl}}"], "path": ["applications"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"applicant\": {\n    \"name\": \"Gopal Iyer\",\n    \"age\": 58,\n    \"monthlyIncome\": 90000,\n    \"employmentType\": \"SALARIED\",\n    \"creditScore\": 750\n  },\n  \"loan\": {\n    \"amount\": 500000,\n    \"tenureMonths\": 120,\n    \"purpose\": \"HOME\"\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Age 58 + (120/12 = 10) = 68 > 65 → rejected",
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Decision is REJECTED', () => pm.expect(pm.response.json().status).to.eql('REJECTED'));",
+                  "pm.test('Rejection reason is AGE_TENURE_LIMIT_EXCEEDED', () => {",
+                  "    pm.expect(pm.response.json().rejectionReasons).to.include('AGE_TENURE_LIMIT_EXCEEDED');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject — EMI exceeds 60% of monthly income",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/applications", "host": ["{{baseUrl}}"], "path": ["applications"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"applicant\": {\n    \"name\": \"Kavya Reddy\",\n    \"age\": 27,\n    \"monthlyIncome\": 20000,\n    \"employmentType\": \"SALARIED\",\n    \"creditScore\": 720\n  },\n  \"loan\": {\n    \"amount\": 2000000,\n    \"tenureMonths\": 24,\n    \"purpose\": \"PERSONAL\"\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// High loan amount on low income — EMI will far exceed 60%",
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Decision is REJECTED', () => pm.expect(pm.response.json().status).to.eql('REJECTED'));",
+                  "pm.test('Rejection reason is EMI_EXCEEDS_60_PERCENT', () => {",
+                  "    pm.expect(pm.response.json().rejectionReasons).to.include('EMI_EXCEEDS_60_PERCENT');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject — Multiple rules fail simultaneously",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/applications", "host": ["{{baseUrl}}"], "path": ["applications"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"applicant\": {\n    \"name\": \"Ramesh Joshi\",\n    \"age\": 59,\n    \"monthlyIncome\": 15000,\n    \"employmentType\": \"SALARIED\",\n    \"creditScore\": 400\n  },\n  \"loan\": {\n    \"amount\": 5000000,\n    \"tenureMonths\": 120,\n    \"purpose\": \"HOME\"\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Score 400 < 600 AND age 59 + 10 = 69 > 65 → both reasons returned",
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Decision is REJECTED', () => pm.expect(pm.response.json().status).to.eql('REJECTED'));",
+                  "pm.test('All applicable rejection reasons are returned', () => {",
+                  "    const reasons = pm.response.json().rejectionReasons;",
+                  "    pm.expect(reasons).to.include('CREDIT_SCORE_BELOW_MINIMUM');",
+                  "    pm.expect(reasons).to.include('AGE_TENURE_LIMIT_EXCEEDED');",
+                  "});",
+                  "pm.test('Multiple reasons present', () => {",
+                  "    pm.expect(pm.response.json().rejectionReasons.length).to.be.at.least(2);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reject — EMI exceeds 50% income (offer viability gate)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/applications", "host": ["{{baseUrl}}"], "path": ["applications"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"applicant\": {\n    \"name\": \"Nitin Patil\",\n    \"age\": 30,\n    \"monthlyIncome\": 30000,\n    \"employmentType\": \"SALARIED\",\n    \"creditScore\": 760\n  },\n  \"loan\": {\n    \"amount\": 1800000,\n    \"tenureMonths\": 36,\n    \"purpose\": \"AUTO\"\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Passes 60% gate but EMI > 50% of 30000 → rejected at offer viability gate",
+                  "pm.test('Status 201 Created', () => pm.response.to.have.status(201));",
+                  "pm.test('Decision is REJECTED', () => pm.expect(pm.response.json().status).to.eql('REJECTED'));",
+                  "pm.test('Rejection reason is EMI_EXCEEDS_50_PERCENT', () => {",
+                  "    pm.expect(pm.response.json().rejectionReasons).to.include('EMI_EXCEEDS_50_PERCENT');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Validation Errors — 400 Bad Request",
+      "description": "Requests with invalid or missing fields that fail Bean Validation before reaching business logic.",
+      "item": [
+        {
+          "name": "400 — Missing applicant block",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/applications", "host": ["{{baseUrl}}"], "path": ["applications"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"loan\": {\n    \"amount\": 200000,\n    \"tenureMonths\": 24,\n    \"purpose\": \"PERSONAL\"\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error response has fieldErrors', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.fieldErrors).to.be.an('array').that.is.not.empty;",
+                  "});",
+                  "pm.test('Field error points to applicant', () => {",
+                  "    const fields = pm.response.json().fieldErrors.map(e => e.field);",
+                  "    pm.expect(fields).to.include('applicant');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "400 — Credit score out of range (below 300)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/applications", "host": ["{{baseUrl}}"], "path": ["applications"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"applicant\": {\n    \"name\": \"Test User\",\n    \"age\": 30,\n    \"monthlyIncome\": 50000,\n    \"employmentType\": \"SALARIED\",\n    \"creditScore\": 100\n  },\n  \"loan\": {\n    \"amount\": 200000,\n    \"tenureMonths\": 24,\n    \"purpose\": \"PERSONAL\"\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Field error on creditScore', () => {",
+                  "    const fields = pm.response.json().fieldErrors.map(e => e.field);",
+                  "    pm.expect(fields.some(f => f.includes('creditScore'))).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "400 — Age below minimum (21)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/applications", "host": ["{{baseUrl}}"], "path": ["applications"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"applicant\": {\n    \"name\": \"Young Person\",\n    \"age\": 18,\n    \"monthlyIncome\": 50000,\n    \"employmentType\": \"SALARIED\",\n    \"creditScore\": 700\n  },\n  \"loan\": {\n    \"amount\": 200000,\n    \"tenureMonths\": 24,\n    \"purpose\": \"PERSONAL\"\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Field error on age', () => {",
+                  "    const fields = pm.response.json().fieldErrors.map(e => e.field);",
+                  "    pm.expect(fields.some(f => f.includes('age'))).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "400 — Loan amount below minimum (10000)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/applications", "host": ["{{baseUrl}}"], "path": ["applications"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"applicant\": {\n    \"name\": \"Test User\",\n    \"age\": 30,\n    \"monthlyIncome\": 50000,\n    \"employmentType\": \"SALARIED\",\n    \"creditScore\": 700\n  },\n  \"loan\": {\n    \"amount\": 5000,\n    \"tenureMonths\": 24,\n    \"purpose\": \"PERSONAL\"\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Field error on loan amount', () => {",
+                  "    const fields = pm.response.json().fieldErrors.map(e => e.field);",
+                  "    pm.expect(fields.some(f => f.includes('amount'))).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "400 — Loan amount above maximum (5000000)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/applications", "host": ["{{baseUrl}}"], "path": ["applications"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"applicant\": {\n    \"name\": \"Test User\",\n    \"age\": 30,\n    \"monthlyIncome\": 500000,\n    \"employmentType\": \"SALARIED\",\n    \"creditScore\": 800\n  },\n  \"loan\": {\n    \"amount\": 9999999,\n    \"tenureMonths\": 24,\n    \"purpose\": \"PERSONAL\"\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Field error on loan amount', () => {",
+                  "    const fields = pm.response.json().fieldErrors.map(e => e.field);",
+                  "    pm.expect(fields.some(f => f.includes('amount'))).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "400 — Tenure below minimum (6 months)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/applications", "host": ["{{baseUrl}}"], "path": ["applications"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"applicant\": {\n    \"name\": \"Test User\",\n    \"age\": 30,\n    \"monthlyIncome\": 50000,\n    \"employmentType\": \"SALARIED\",\n    \"creditScore\": 700\n  },\n  \"loan\": {\n    \"amount\": 200000,\n    \"tenureMonths\": 3,\n    \"purpose\": \"PERSONAL\"\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Field error on tenureMonths', () => {",
+                  "    const fields = pm.response.json().fieldErrors.map(e => e.field);",
+                  "    pm.expect(fields.some(f => f.includes('tenureMonths'))).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "400 — Invalid employment type (unknown enum)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/applications", "host": ["{{baseUrl}}"], "path": ["applications"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"applicant\": {\n    \"name\": \"Test User\",\n    \"age\": 30,\n    \"monthlyIncome\": 50000,\n    \"employmentType\": \"FREELANCER\",\n    \"creditScore\": 700\n  },\n  \"loan\": {\n    \"amount\": 200000,\n    \"tenureMonths\": 24,\n    \"purpose\": \"PERSONAL\"\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error body is present', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.status).to.eql(400);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "400 — Blank applicant name",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/applications", "host": ["{{baseUrl}}"], "path": ["applications"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"applicant\": {\n    \"name\": \"\",\n    \"age\": 30,\n    \"monthlyIncome\": 50000,\n    \"employmentType\": \"SALARIED\",\n    \"creditScore\": 700\n  },\n  \"loan\": {\n    \"amount\": 200000,\n    \"tenureMonths\": 24,\n    \"purpose\": \"PERSONAL\"\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Field error on name', () => {",
+                  "    const fields = pm.response.json().fieldErrors.map(e => e.field);",
+                  "    pm.expect(fields.some(f => f.includes('name'))).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "400 — Malformed JSON body",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/applications", "host": ["{{baseUrl}}"], "path": ["applications"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{ this is not valid json }"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Error body present', () => {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.status).to.eql(400);",
+                  "    pm.expect(body.errorMessage).to.be.a('string');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "400 — Multiple fields invalid simultaneously",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{baseUrl}}/applications", "host": ["{{baseUrl}}"], "path": ["applications"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"applicant\": {\n    \"name\": \"\",\n    \"age\": 15,\n    \"monthlyIncome\": -1000,\n    \"employmentType\": \"SALARIED\",\n    \"creditScore\": 50\n  },\n  \"loan\": {\n    \"amount\": 100,\n    \"tenureMonths\": 2,\n    \"purpose\": \"PERSONAL\"\n  }\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Multiple field errors returned at once', () => {",
+                  "    pm.expect(pm.response.json().fieldErrors.length).to.be.at.least(3);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
